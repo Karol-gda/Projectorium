@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Moje zadania</h2>
+
+  {% if tasks %}
+  <table class="table table-bordered table-hover mt-3">
+    <thead class="thead-light">
+      <tr>
+        <th>Tytuł</th>
+        <th>Projekt</th>
+        <th>Termin</th>
+        <th>Status</th>
+        <th>Opis</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>{{ task.title }}</td>
+        <td>{{ task.project.name }}</td>
+        <td>{{ task.due_date|date:"d.m.Y" }}</td>
+        <td>{{ task.get_status_display }}</td>
+        <td>{{ task.description|default:"–" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="alert alert-info mt-3">Nie masz przypisanych zadań.</div>
+  {% endif %}
+</div>
+{% endblock %}

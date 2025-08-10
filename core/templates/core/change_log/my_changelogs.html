@@ -1,0 +1,12 @@
+<h2>Moje zgłoszenia zmian</h2>
+<ul>
+  {% for change in changelogs %}
+    <li>
+      <strong>{{ change.title }}</strong> – {{ change.project.title }}<br>
+      Status: {{ change.get_status_display }}<br>
+      Data: {{ change.created_at|date:"d.m.Y" }}
+    </li>
+  {% empty %}
+    <li>Brak zgłoszeń.</li>
+  {% endfor %}
+</ul>

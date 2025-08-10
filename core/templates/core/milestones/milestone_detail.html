@@ -1,0 +1,20 @@
+<h1>{{ milestone.title }}</h1>
+<p>{{ milestone.description }}</p>
+
+<h2>Zadania główne</h2>
+<ul>
+  {% for task in main_tasks %}
+    <li>
+      <strong>{{ task.title }}</strong> – {{ task.get_status_display }}
+      <ul>
+        {% for child in task.children.all %}
+          <li>{{ child.title }} – {{ child.get_status_display }}</li>
+        {% empty %}
+          <li><em>Brak podzadań</em></li>
+        {% endfor %}
+      </ul>
+    </li>
+  {% empty %}
+    <li><em>Brak zadań</em></li>
+  {% endfor %}
+</ul>

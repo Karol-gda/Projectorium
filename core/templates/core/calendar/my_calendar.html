@@ -1,0 +1,27 @@
+<div class="container mt-4">
+  <h2 class="mb-4"> Mój kalendarz</h2>
+
+  <h4>Kamienie milowe</h4>
+  <ul class="list-group mb-4">
+    {% for milestone in milestones %}
+      <li class="list-group-item">
+        <strong>{{ milestone.title }}</strong><br>
+        Projekt: {{ milestone.project.name }}<br>
+        Termin: {{ milestone.due_date|date:"d.m.Y" }}
+      </li>
+    {% empty %}
+      <li class="list-group-item">Brak nadchodzących milestone’ów.</li>
+    {% endfor %}
+  </ul>
+
+  <h4>Zadania</h4>
+  <ul class="list-group">
+    {% for task in tasks %}
+      <li class="list-group-item">
+        <strong>{{ task.title }}</strong><br>
+        Termin: {{ task.due_date|date:"d.m.Y" }}
+      </li>
+    {% empty %}
+      <li class="list-group-item">Brak nadchodzących zadań.</li>
+    {% endfor %}
+  </ul>

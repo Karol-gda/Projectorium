@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Strona główna - Projectorium{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h2>Zarządzaj projektami naukowymi efektywnie</h2>
+    <p>Dołącz do Projectorium i monitoruj postęp, terminy, wydatki i dokumenty w jednym miejscu.</p>
+    {% if not user.is_authenticated %}
+        <a href="{% url 'register' %}" class="btn">Zarejestruj się</a>
+        <a href="{% url 'login' %}" class="btn">Zaloguj</a>
+    {% endif %}
+</section>
+{% endblock %}
