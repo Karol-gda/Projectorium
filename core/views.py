@@ -12,7 +12,6 @@ class HomeView(View):
     def get(self, request):
         return render(request, 'core/home.html')
 
-
 class RegistrationView(View):
     def get(self, request):
         form = RegistrationForm()
