@@ -7,42 +7,45 @@ PROJECT_TYPE_CHOICES = [
 ]
 
 class Project(models.Model):
-    is_active = models.BooleanField(default=True)
-    internal_number = models.CharField("Nr wewnętrzny projektu", max_length=50, unique=True, default='')
+    is_active = models.BooleanField(default=True, verbose_name='Projekt aktywny?')
+    internal_number = models.CharField("Nr wewnętrzny projektu", max_length=50, unique=True)
     title = models.CharField(max_length=250, default='')
-    description = models.TextField("Opis projektu", max_length=1000, default='')
+    description = models.TextField("Opis projektu", max_length=1000)
 
     principal_investigator = models.ForeignKey(User, on_delete=models.PROTECT, related_name='led_projects',
-                                               verbose_name="Kierownik projektu", default='')
-    pi_email = models.EmailField("Email Kierownika projektu", default='')
-    pi_phone = models.CharField("Telefon Kierownika projektu", max_length=20, default='')
+                                               verbose_name="Kierownik projektu")
+    pi_email = models.EmailField("Email Kierownika projektu")
+    pi_phone = models.CharField("Telefon Kierownika projektu", max_length=20)
 
 
-    contact_person = models.CharField("Osoba do kontaktu", max_length=150, default='')
-    contact_email = models.EmailField("Email kontaktowy", default='')
-    contact_phone = models.CharField("Telefon kontaktowy", max_length=20, default='')
+    contact_person = models.CharField("Osoba do kontaktu", max_length=150, null=True, blank=True)
+    contact_email = models.EmailField("Email kontaktowy", null=True, blank=True)
+    contact_phone = models.CharField("Telefon kontaktowy", null=True, blank=True)
 
 
-    project_type = models.CharField("Typ projektu", max_length=20, choices=PROJECT_TYPE_CHOICES, default='')
-    project_leader = models.CharField("Lider projektu", max_length=200, default='')
-    domestic_partners = models.TextField("Partnerzy krajowi", blank=True, max_length=500, default='')
-    foreign_partners = models.TextField("Partnerzy zagraniczni", max_length=500, blank=True, default='')
+    project_type = models.CharField("Typ projektu", max_length=20, choices=PROJECT_TYPE_CHOICES)
+    project_leader = models.CharField("Lider projektu", max_length=200, null=True, blank=True)
+    domestic_partners = models.TextField("Partnerzy krajowi", max_length=500, null=True, blank=True)
+    foreign_partners = models.TextField("Partnerzy zagraniczni", max_length=500, null=True, blank=True)
 
 
-    funding_agency = models.CharField("Instytucja finansująca", max_length=200, default='')
-    call_name = models.CharField("Nazwa i edycja konkursu", max_length=150, default='')
-    funding_decision_date = models.DateField("Data decyzji o finansowaniu", default=None)
-    funding_number = models.CharField("Nr projektu w instytucji finansującej", max_length=100, default='')
+    funding_agency = models.CharField("Instytucja finansująca", max_length=200)
+    call_name = models.CharField("Nazwa i edycja konkursu", max_length=150)
+    funding_decision_date = models.DateField("Data decyzji o finansowaniu")
+    funding_number = models.CharField("Nr projektu w instytucji finansującej", max_length=100)
     agreement_number = models.CharField("Numer umowy o finansowanie", max_length=100, default='')
-    agreement_sign_date = models.DateField("Data podpisania umowy", default=None)
-    start_date = models.DateTimeField("Data rozpoczęcia projektu", default=None)
-    end_date = models.DateTimeField("Data zakończenia projektu", default=None)
+    agreement_sign_date = models.DateField("Data podpisania umowy")
+    start_date = models.DateField("Data rozpoczęcia projektu")
+    end_date = models.DateField("Data zakończenia projektu")
 
     executing_unit = models.CharField("Jednostka realizująca", max_length=200)
     budget_total = models.DecimalField("Budżet całkowity", max_digits=12, decimal_places=2)
 
     project_support = models.ForeignKey(User, on_delete=models.PROTECT, related_name='supported_projects',
-                                        verbose_name="Opiekun Projektu", default='')
+                                        verbose_name="Opiekun Projektu")
+
+    def __str__(self):
+        return f"Projekt: {self.title} ({self.internal_number})"
 
     class Meta:
         ordering = ['start_date']
@@ -83,14 +86,14 @@ class Milestone(models.Model):
         ('delayed', 'Opóźniony'),
     ]
 
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='milestones')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
 
     start_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
 
-    responsible = models.ManyToManyField(User, blank=True, related_name='milestones')
+    responsible = models.ManyToManyField(User, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
 
     def __str__(self):
@@ -116,7 +119,7 @@ class SubTask(models.Model):
 
     start_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planned")
     completed = models.BooleanField(default=False)
 
     def __str__(self):
@@ -143,18 +146,20 @@ class ProjectChangeLog(models.Model):
         ("approved", "Zatwierdzony"),
     ]
 
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='changelogs')
     title = models.CharField(max_length=255)
     description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.project.name} - {self.title}"
+        return f"{self.project.title} - {self.title}"
 
 class Expenses(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    description = models.TextField(max_length=255)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='expenses')
+    description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField()
 
+    def __str__(self):
+        return f"Wydatek: {self.amount} PLN na „{self.project.title}” ({self.date})"
