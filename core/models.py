@@ -38,7 +38,7 @@ class Project(models.Model):
     start_date = models.DateTimeField("Data rozpoczęcia projektu", default=None)
     end_date = models.DateTimeField("Data zakończenia projektu", default=None)
 
-    executing_unit = models.CharField("Jednostka realizująca", max_length=200, default='')
+    executing_unit = models.CharField("Jednostka realizująca", max_length=200)
     budget_total = models.DecimalField("Budżet całkowity", max_digits=12, decimal_places=2)
 
     project_support = models.ForeignKey(User, on_delete=models.PROTECT, related_name='supported_projects',
