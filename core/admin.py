@@ -18,8 +18,8 @@ class MilestoneAdmin(admin.ModelAdmin):
 
 @admin.register(SubTask)
 class SubTaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'milestone', 'completed', 'start_date', 'due_date')
-    list_filter = ('completed', 'milestone')
+    list_display = ('title', 'milestone', 'start_date', 'due_date')
+    list_filter = ('milestone',)
     search_fields = ('title', 'description')
     filter_horizontal = ('assigned_to',)
 

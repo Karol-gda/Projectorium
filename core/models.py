@@ -1,6 +1,6 @@
 from datetime import date
-
 from django.db import models
+from django.db.models import Sum
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 
@@ -35,7 +35,7 @@ class Project(models.Model):
     call_name = models.CharField("Nazwa i edycja konkursu", max_length=150)
     funding_decision_date = models.DateField("Data decyzji o finansowaniu")
     funding_number = models.CharField("Nr projektu w instytucji finansującej", max_length=100)
-    agreement_number = models.CharField("Numer umowy o finansowanie", max_length=100, default='')
+    agreement_number = models.CharField("Numer umowy o finansowanie", max_length=100)
     agreement_sign_date = models.DateField("Data podpisania umowy")
     start_date = models.DateField("Data rozpoczęcia projektu")
     end_date = models.DateField("Data zakończenia projektu")
@@ -49,9 +49,16 @@ class Project(models.Model):
     def __str__(self):
         return f"Projekt: {self.title} ({self.internal_number})"
 
+    def get_total_expenses(self):
+        result = self.expenses.aggregate(total=Sum('amount'))
+        return result['total'] or 0
+
+    def get_remaining_budget(self):
+        return self.budget_total - self.get_total_expenses()
+
     def clean(self):
         super().clean()
-
+        errors = {}
         if self.contact_person:
             if not self.contact_email:
                 raise ValidationError({'contact_email': 'Podaj Email kontaktowy, jeśli wskazano osobę do kontaktu'})
@@ -59,13 +66,13 @@ class Project(models.Model):
                 raise ValidationError({'contact_phone': 'Podaj telefon kontaktowy, jeśli wskazano osobę do kontaktu'})
 
         if self.project_type == 'GR':
-            errors = {}
+
 
             if not self.project_leader:
                 errors['project_leader'] = 'Wymagane dla projektów wielopodmiotowych.'
             if not self.domestic_partners and not self.foreign_partners:
-                errors['domestic_partners'] = 'Należy uzupełnić partnerów kajrowych lub partnerów zagranicznych dla projektu wielopodmiotowego'
-                errors['foreign_partners'] = 'Należy uzupełnić partnerów kajrowych lub partnerów zagranicznych dla projektu wielopodmiotowego'
+                errors['domestic_partners'] = 'Należy uzupełnić partnerów krajowych lub partnerów zagranicznych dla projektu wielopodmiotowego'
+                errors['foreign_partners'] = 'Należy uzupełnić partnerów krajowych lub partnerów zagranicznych dla projektu wielopodmiotowego'
 
         if self.funding_decision_date and self.agreement_sign_date:
             if self.funding_decision_date > self.agreement_sign_date:
@@ -88,6 +95,8 @@ class Project(models.Model):
 
     def get_status(self):
         today = date.today()
+        if not self.start_date or not self.end_date:
+            return "Brak daty"
         if today < self.start_date:
             return "Nie rozpoczęty"
         elif self.start_date <= today <= self.end_date:
@@ -97,6 +106,8 @@ class Project(models.Model):
 
     def get_days_remaining(self):
         today = date.today()
+        if not self.end_date:
+            return "Brak daty zakończenia"
         if self.end_date < today:
             return "Koniec projektu"
         return (self.end_date - today).days
@@ -126,7 +137,7 @@ class ProjectMembership(models.Model):
         verbose_name = "Członek zespołu"
         verbose_name_plural = "Członkowie zespołu"
         unique_together = ('project', 'role', 'user')
-        ordering = ['project', 'role', 'user']
+        ordering = ['project', 'role', 'user', 'assigned_at']
 
     def __str__(self):
         return f"{self.user.get_full_name()} jako {self.get_role_display()} w projekcie „{self.project.title}”"
@@ -153,6 +164,18 @@ class Milestone(models.Model):
     def __str__(self):
         return f"{self.title} ({self.project.title})"
 
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if self.start_date and self.due_date:
+            if self.start_date > self.due_date:
+                errors['start_date'] = "Data rozpoczęcia nie może być późniejsza niż termin realizacji."
+                errors['due_date'] = "Termin realizacji nie może być wcześniejszy niż data rozpoczęcia."
+
+        if errors:
+            raise ValidationError(errors)
+
     class Meta:
         ordering = ['start_date']
 
@@ -174,21 +197,42 @@ class SubTask(models.Model):
     start_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planned")
-    completed = models.BooleanField(default=False)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if self.start_date and self.due_date:
+            if self.start_date > self.due_date:
+                errors['start_date'] = "Data rozpoczęcia nie może być późniejsza niż termin realizacji."
+                errors['due_date'] = "Termin realizacji nie może być wcześniejszy niż data rozpoczęcia."
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
-        return f"{self.title} ({'Zakończone' if self.completed else 'W trakcie'})"
+        return f"{self.title} ({self.get_status_display()})"
 
     class Meta:
         ordering = ['due_date']
 
+def document_upload_path(instance, filename):
+    return f'documents/{instance.project.internal_number}/{filename}'
+
 class Document(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='documents')
     name = models.CharField(max_length=200)
-    file = models.FileField(upload_to='documents/')
+    file = models.FileField(upload_to=document_upload_path)
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    def clean(self):
+        super().clean()
+        if self.file:
+            extension = self.file.name.split('.')[-1].lower()
+            if extension not in ('pdf', 'docx', 'doc', 'xlsx'):
+                raise ValidationError({'file': 'Dozwolne formaty: PDF, DOCX, DOC, XLSX'})
 
     def __str__(self):
         return f"{self.name} ({self.project.title})"
@@ -209,11 +253,29 @@ class ProjectChangeLog(models.Model):
     def __str__(self):
         return f"{self.project.title} - {self.title}"
 
+def receipt_upload_path(instance, filename):
+    return f'receipts/{instance.project.internal_number}/{filename}'
+
 class Expenses(models.Model):
+    EXPENSES_CATEGORY_CHOICES = [
+        ('equipment', 'Aparatura i sprzęt'),
+        ('salary', 'Wynagrodzenie'),
+        ('travel', 'Podróże służbowe'),
+        ('services', 'Usługi obce'),
+        ('other', 'Inne'),
+    ]
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='expenses')
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField()
+    category = models.CharField(max_length=20, choices=EXPENSES_CATEGORY_CHOICES, default='', verbose_name="Kategoria wydatków")
+    receipt = models.FileField(upload_to=receipt_upload_path, null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.date and self.project:
+            if self.date < self.project.start_date or self.date > self.project.end_date:
+                raise ValidationError({'date': 'Data wydatku musi mieścić się w okresie trwania projektu.'})
 
     def __str__(self):
-        return f"Wydatek: {self.amount} PLN na „{self.project.title}” ({self.date})"
+        return f"Wydatek: {self.amount} PLN na „{self.project.title}” ({self.date}) [{self.get_category_display()}]"
